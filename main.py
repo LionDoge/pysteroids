@@ -32,9 +32,13 @@ def spawn_asteroids_randomized(count: int, level: int):
     asteroid_speed_max_base = 0.25
 
     for i in range(count):
-        # TODO: aspect ratio aware position
-        pos_x = random.uniform(-0.3, 0.3)
-        pos_y = random.uniform(-0.3, 0.3)
+        ship_pos = ship.position if ship is not None else Vec2(0, 0)
+        min_distance = 0.4
+        max_distance = 0.7
+        angle = random.uniform(0, 2 * math.pi)
+        distance = random.uniform(min_distance, max_distance)
+        pos_x = ship_pos.x + math.cos(angle) * distance
+        pos_y = ship_pos.y + math.sin(angle) * distance
         position = Vec2(
             pos_x,
             pos_y,
