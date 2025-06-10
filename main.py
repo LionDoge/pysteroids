@@ -1,7 +1,10 @@
 from ursina import *
+from ursina.shaders.screenspace_shaders import pixelation_shader
 import math
-from asteroids import Asteroid
 import random
+from entities.asteroid_ent import Asteroid
+from entities.ship_ent import Ship
+from entities.particlesystem import ParticleSystem
 
 app = Ursina()
 window.color = color.black
@@ -11,18 +14,22 @@ camera.fov = 1
 current_level = 0
 bullet_speed = 0.3
 bullet_size = 0.01
-bullet_dmg = 0.1
+bullet_dmg = 1
 score = 0
-bigAsteroidLimit = 0.07 # minimum size of a big asteroid for it to be able to split into smaller ones.
+bigAsteroidLimit = 0.08 # minimum size of a big asteroid for it to be able to split into smaller ones.
 
-ship = Entity(model=Cone(4, 0.1, 0.3), color=color.azure,
-               scale=(.2, .2), position=(0, 0), origin=(0, 0.1, 0))
+ship = Ship(color=color.azure, position=(0, 0))
 
 ship.accel = 0.2
 ship.velocity = Vec2(0, 0)
 ship.shooting_cooldown = 0.2
 ship.last_shoot_time = 0.0
+ship.health = 3
 info_text = Text(text=f"rot {ship.rotation.z}", position=(0, .4), scale=1, origin=(0, 0))
+
+sfx_shoot = Audio('assets/sfx/ship-shoot.wav', loop=False, autoplay=False)
+sfx_asteroid_destroy = Audio('assets/sfx/asteroid-destroy.mp3', loop=False, autoplay=False)
+sfx_damaged = Audio('assets/sfx/ship-damaged.mp3', loop=False, autoplay=False)
 # ball = Entity(model='circle', color=color.red, scale=.1, position=(0, 0))
 # ball.velocity = Vec2(0.1, 0)
 
@@ -53,8 +60,8 @@ def is_out_of_bounds(pos, pad):
         return True
     return False
 
-def update_text(rot, speed, pos):
-    info_text.text = f"score {score} rot {rot:.2f} speed {speed:.2f} pos {pos.x:.2f}, {pos.y:.2f}"
+def update_text(rot, speed, pos, health):
+    info_text.text = f"score {score} rot {rot:.2f} speed {speed:.2f} pos {pos.x:.2f}, {pos.y:.2f} hp {health}"
 
 bullets = []
 asteroids = []
@@ -62,19 +69,20 @@ def get_asteroids_count():
     return len(asteroids)
 
 def shoot_bullet(from_entity: Entity):
-    bullet = Entity(model='circle', color=color.white, scale=bullet_size, position=from_entity.position)
+    bullet = Entity(model=Circle(mode='line'), color=from_entity.color, scale=bullet_size, position=from_entity.position, collider='sphere')
     ent_rot_rad = -1.0 * (math.radians(ship.rotation_z) - math.pi/2)
     bullet.velocity = Vec2(
         math.cos(ent_rot_rad) * 0.5,
         math.sin(ent_rot_rad) * 0.5
     )
     bullets.append(bullet)
+    sfx_shoot.play()
 
 asteroid_debug = True
 def spawn_asteroids_randomized(count: int, level: int):
-    asteroid_speed_level_scale = 0.05
+    asteroid_speed_level_scale = 0.03
     asteroid_speed_min = 0.05
-    asteroid_speed_max_base = 0.3
+    asteroid_speed_max_base = 0.25
 
     for i in range(count):
         # TODO: aspect ratio aware position
@@ -104,7 +112,7 @@ def spawn_asteroids_randomized(count: int, level: int):
         # randomize rotation speed
         rot_speed = random.uniform(-0.25, 0.25) * 360
         # level based health
-        health = 5 + (2 * level)
+        health = 1 + (2 * level)
 
         asteroid = Asteroid(
             scale=scale,
@@ -115,10 +123,29 @@ def spawn_asteroids_randomized(count: int, level: int):
         )
         asteroids.append(asteroid)
 
-def destroy_asteroid(asteroid: Entity):
-    asteroids.remove(asteroid)
-    destroy(asteroid)
-    
+def damage_asteroid(asteroid: Asteroid, amount: int) -> bool:
+    asteroid.health -= amount
+    if asteroid.health <= 0:
+        if asteroid.scale.x > bigAsteroidLimit:
+            spawnRangeRadius = 0.01
+            spawnCount = random.randint(2, 6)
+            for i in range(spawnCount): 
+                angle = (float(i) / float(spawnCount)) * 2 * math.pi
+                aSin = math.sin(angle)
+                aCos = math.cos(angle)
+                asteroid_pos = asteroid.position + Vec2(aCos * spawnRangeRadius, aSin * spawnRangeRadius)
+                speed = random.uniform(0.03, 0.1 + (0.03 * current_level)) 
+
+                new_asteroid = Asteroid(
+                    scale=random.uniform(0.05, bigAsteroidLimit - 0.01),
+                    velocity=Vec2(aCos * speed, aSin * speed),
+                    rotation_speed=random.uniform(-0.25, 0.25) * 360,
+                    health=2 + (current_level - 1),
+                    position=asteroid_pos
+                )
+                asteroids.append(new_asteroid)
+        return True
+    return False
 
 def next_level(level):
     spawn_asteroids_randomized(1 + level, level)
@@ -139,7 +166,7 @@ def update():
     ship.velocity = Vec2(new_vel_x, new_vel_y)
     ship.position = ship.position + ship.velocity * time.dt
     ship.position = wrap_around_position(ship.position, 0.05)
-    update_text(ship.rotation_z, ship.velocity.length(), ship.position)
+    update_text(ship.rotation_z, ship.velocity.length(), ship.position, ship.health)
 
     if held_keys['space']:
         if time.time() >= ship.last_shoot_time + ship.shooting_cooldown:
@@ -152,19 +179,47 @@ def update():
             bullets.remove(bullet)
             destroy(bullet)
 
+    #alive_asteroids = [a for a in asteroids if a.health > 0]
+    asteroids_to_destroy = list()
     for asteroid in asteroids:
+    
+        asteroid.position += asteroid.velocity * time.dt
+        asteroid.position = wrap_around_position(asteroid.position, 0.05)
+        asteroid.rotation_z += asteroid.rotation_speed * time.dt
+        asteroid.rotation_z = asteroid.rotation_z % 360
+
         if asteroid_debug:
             if not hasattr(asteroid, 'debug'):
                 asteroid.debug = Text(position=(0, 0), scale=0.5, origin=(0, 0))
             asteroid.debug.text = f"scale {asteroid.scale.x:.2f} | vel {asteroid.velocity.x:.2f}, {asteroid.velocity.y:.2f} | health {asteroid.health}"
             asteroid.debug.position = Vec2(asteroid.position.x, asteroid.position.y + 0.05)
 
-        asteroid.position += asteroid.velocity * time.dt
-        asteroid.position = wrap_around_position(asteroid.position, 0.05)
-        asteroid.rotation_z += asteroid.rotation_speed * time.dt
-        asteroid.rotation_z = asteroid.rotation_z % 360
-        if asteroid.health <= 0:
-            destroy_asteroid(asteroid)
+        hit_info = asteroid.intersects()
+        if hit_info.hit:
+            if hit_info.entity == ship:
+                if time.time() >= ship.last_damage_time + ship.damage_cooldown:
+                    ship.take_damage(1)
+                    sfx_damaged.play()
+                    print(f"Ship hit by asteroid! Health: {ship.health}")
+                    ship.last_damage_time = time.time()
+            elif hit_info.entity in bullets:
+                bullet = hit_info.entity
+                if bullet in bullets:
+                    bullets.remove(bullet)
+                    destroy(bullet)
+                    p = ParticleSystem(num_particles=50, frames=60, thickness=5, position=asteroid.position, color=color.white, rotation_y=random.random()*360)
+                    p.fade_out(duration=.2, delay=1-.2, curve=curve.linear)
+                    if damage_asteroid(asteroid, bullet_dmg):
+                        sfx_asteroid_destroy.play()
+                        asteroids_to_destroy.append(asteroid)
+                        score += 50 * current_level
+                    
+                    score += 5
     
+    for asteroid in asteroids_to_destroy:
+        if asteroid in asteroids:
+            asteroids.remove(asteroid)
+            asteroid.remove()
+            #print(f"Asteroid destroyed! Remaining: {get_asteroids_count()}")
 
 app.run()

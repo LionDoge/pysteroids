@@ -1,7 +1,7 @@
 from ursina import *
 import random
 
-class Asteroid(Mesh):
+class AsteroidModel(Mesh):
     def __init__(self, resolution=16, radius=.5, mode='line', **kwargs):
         origin = Entity()
         point = Entity(parent=origin)
@@ -18,4 +18,4 @@ class Asteroid(Mesh):
             self.vertices.append(self.vertices[0])
 
         destroy(origin)
-        super().__init__(vertices=self.vertices, mode=mode, **kwargs)
+        super().__init__(vertices=self.vertices, mode=mode, thickness=2, **kwargs)
