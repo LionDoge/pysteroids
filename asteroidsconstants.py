@@ -1,0 +1,6 @@
+ASSET_DIR = "assets/"
+SFX_SHIP_SHOOT = "sfx/ship-shoot.wav"
+SFX_ASTEROID_DESTROY = "sfx/asteroid-destroy.mp3"
+SFX_SHIP_DAMAGED = "sfx/ship-damaged.mp3"
+SPRITE_HEART = "graphics/heart.png"
+SPRITE_HEART_EMPTY = "graphics/heart_empty.png"

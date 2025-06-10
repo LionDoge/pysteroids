@@ -5,34 +5,24 @@ import random
 from entities.asteroid_ent import Asteroid
 from entities.ship_ent import Ship
 from entities.particlesystem import ParticleSystem
+import asteroidsconstants as ac
+from enum import Enum
+from gameui import GameUI
 
+DEBUG_TEXT = True
 app = Ursina()
 window.color = color.black
 camera.orthographic = True
 camera.fov = 1
 
-current_level = 0
 bullet_speed = 0.3
 bullet_size = 0.01
 bullet_dmg = 1
-score = 0
 bigAsteroidLimit = 0.08 # minimum size of a big asteroid for it to be able to split into smaller ones.
 
-ship = Ship(color=color.azure, position=(0, 0))
-
-ship.accel = 0.2
-ship.velocity = Vec2(0, 0)
-ship.shooting_cooldown = 0.2
-ship.last_shoot_time = 0.0
-ship.health = 3
-info_text = Text(text=f"rot {ship.rotation.z}", position=(0, .4), scale=1, origin=(0, 0))
-
-sfx_shoot = Audio('assets/sfx/ship-shoot.wav', loop=False, autoplay=False)
-sfx_asteroid_destroy = Audio('assets/sfx/asteroid-destroy.mp3', loop=False, autoplay=False)
-sfx_damaged = Audio('assets/sfx/ship-damaged.mp3', loop=False, autoplay=False)
-# ball = Entity(model='circle', color=color.red, scale=.1, position=(0, 0))
-# ball.velocity = Vec2(0.1, 0)
-
+sfx_shoot = Audio(ac.ASSET_DIR + ac.SFX_SHIP_SHOOT, loop=False, autoplay=False)
+sfx_asteroid_destroy = Audio(ac.ASSET_DIR + ac.SFX_ASTEROID_DESTROY, loop=False, autoplay=False)
+sfx_damaged = Audio(ac.ASSET_DIR + ac.SFX_SHIP_DAMAGED, loop=False, autoplay=False)
 def wrap_around_position(pos, pad):
     x = pos.x * (1 / window.aspect_ratio)
     y = pos.y
@@ -60,7 +50,13 @@ def is_out_of_bounds(pos, pad):
         return True
     return False
 
+if DEBUG_TEXT:
+    global info_text
+    info_text = Text(position=(0, .4), scale=1, origin=(0, 0))
+
 def update_text(rot, speed, pos, health):
+    if not DEBUG_TEXT:
+        return
     info_text.text = f"score {score} rot {rot:.2f} speed {speed:.2f} pos {pos.x:.2f}, {pos.y:.2f} hp {health}"
 
 bullets = []
@@ -78,7 +74,6 @@ def shoot_bullet(from_entity: Entity):
     bullets.append(bullet)
     sfx_shoot.play()
 
-asteroid_debug = True
 def spawn_asteroids_randomized(count: int, level: int):
     asteroid_speed_level_scale = 0.03
     asteroid_speed_min = 0.05
@@ -150,9 +145,40 @@ def damage_asteroid(asteroid: Asteroid, amount: int) -> bool:
 def next_level(level):
     spawn_asteroids_randomized(1 + level, level)
 
+class GameState(Enum):
+    PLAYING = 1
+    LOST = 2
+
+current_level = 0
+score = 0
+ship = None
+game_state = GameState.PLAYING
+game_ui = GameUI()
+def init_game():
+    global current_level, score, ship, game_state
+    current_level = 0
+    score = 0
+    for b in bullets:
+        destroy(b)
+    bullets.clear()
+    for a in asteroids:
+        a.remove()
+    asteroids.clear()
+    destroy(ship)
+    ship = Ship(color=color.azure, position=(0, 0), health=1)
+    game_state = GameState.PLAYING
+
+
 def update():
     global current_level
     global score
+    global game_state
+    if game_state == GameState.LOST:
+        if held_keys['r']:
+            init_game()
+            game_ui.clear_lose_screen()
+        return
+    
     if get_asteroids_count() == 0:
         current_level += 1
         next_level(current_level)
@@ -188,7 +214,7 @@ def update():
         asteroid.rotation_z += asteroid.rotation_speed * time.dt
         asteroid.rotation_z = asteroid.rotation_z % 360
 
-        if asteroid_debug:
+        if DEBUG_TEXT:
             if not hasattr(asteroid, 'debug'):
                 asteroid.debug = Text(position=(0, 0), scale=0.5, origin=(0, 0))
             asteroid.debug.text = f"scale {asteroid.scale.x:.2f} | vel {asteroid.velocity.x:.2f}, {asteroid.velocity.y:.2f} | health {asteroid.health}"
@@ -221,5 +247,11 @@ def update():
             asteroids.remove(asteroid)
             asteroid.remove()
             #print(f"Asteroid destroyed! Remaining: {get_asteroids_count()}")
+    
+    if ship.health <= 0:
+        game_state = GameState.LOST
+        game_ui.display_lose_screen(score)
+        return
 
+init_game()
 app.run()

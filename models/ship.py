@@ -21,4 +21,6 @@ class ShipCollision(Mesh):
             Vec3(0, 0.25, 0),
             Vec3(0.1, 0, 0),
         ]
+        for ver in self.vertices:
+            ver.y -= 0.1
         super().__init__(vertices=self.vertices, **kwargs)
