@@ -16,6 +16,13 @@ class Ship(Entity):
         self.ui_hearts = [Sprite(ac.ASSET_DIR + ac.SPRITE_HEART,
                 position=(-0.1 + 0.1 * i, 0.45) + ui_info_offset, scale=(0.01, 0.01), parent=camera.ui, origin=(0, 0))
                 for i in range(self.health)]
+        
+    def clear(self):
+        for heart in self.ui_hearts:
+            destroy(heart)
+        self.ui_hearts.clear()
+        if hasattr(self, 'debug'):
+            destroy(self.debug)
 
     def take_damage(self, amount: int):
         self.health -= amount

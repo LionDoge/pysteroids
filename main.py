@@ -7,10 +7,10 @@ from entities.ship_ent import Ship
 from entities.particlesystem import ParticleSystem
 import asteroidsconstants as ac
 from enum import Enum
-from gameui import GameUI
+from gameui import *
 
 DEBUG_TEXT = True
-app = Ursina()
+app = Ursina(show_ursina_splash=False)
 window.color = color.black
 camera.orthographic = True
 camera.fov = 1
@@ -148,12 +148,12 @@ def next_level(level):
 class GameState(Enum):
     PLAYING = 1
     LOST = 2
+    MENU = 3
 
 current_level = 0
 score = 0
 ship = None
-game_state = GameState.PLAYING
-game_ui = GameUI()
+game_state = GameState.MENU
 def init_game():
     global current_level, score, ship, game_state
     current_level = 0
@@ -164,15 +164,20 @@ def init_game():
     for a in asteroids:
         a.remove()
     asteroids.clear()
-    destroy(ship)
+    if ship is not None:
+        ship.clear()
+        destroy(ship)
     ship = Ship(color=color.azure, position=(0, 0), health=1)
     game_state = GameState.PLAYING
 
+game_ui = GameUI(init_game)
 
 def update():
     global current_level
     global score
     global game_state
+    if game_state == GameState.MENU:
+        return
     if game_state == GameState.LOST:
         if held_keys['r']:
             init_game()
@@ -253,5 +258,7 @@ def update():
         game_ui.display_lose_screen(score)
         return
 
-init_game()
+window.fullscreen = False
+WindowController()
+game_ui.draw_menu_screen()
 app.run()
