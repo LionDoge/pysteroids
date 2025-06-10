@@ -30,7 +30,7 @@ class Ship(Entity):
             destroy(self.debug)
     
     def shoot_bullet(self):
-        bullet = Entity(model=Circle(mode='line'), color=self.color, scale=ac.C_BULLET_SIZE, position=self.position, collider='sphere')
+        bullet = Entity(model=Circle(), color=self.color, scale=ac.C_BULLET_SIZE, position=self.position, collider='sphere')
         ent_rot_rad = -1.0 * (math.radians(self.rotation_z) - math.pi/2)
         bullet.velocity = Vec2(
             math.cos(ent_rot_rad) * 0.5,

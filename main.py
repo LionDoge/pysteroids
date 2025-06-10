@@ -5,7 +5,7 @@ import globals
 globals.init()
 from globals import GameState
 
-app = Ursina(show_ursina_splash=False)
+app = Ursina(show_ursina_splash=False, vsync=False, title="Asteroidy :D")
 
 import asteroidsconstants as ac
 from entities.asteroid_ent import Asteroid
@@ -122,7 +122,7 @@ def init_game(b_clear = True):
     global ship
     if b_clear:
         clear_game()
-    ship = Ship(color=color.azure, position=(0, 0), health=1)
+    ship = Ship(color=color.azure, position=(0, 0), health=3)
     globals.game_state = GameState.PLAYING
 
 game_ui = GameUI(init_game, DEBUG_TEXT)
