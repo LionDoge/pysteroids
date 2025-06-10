@@ -131,6 +131,8 @@ def update():
     global score
     if globals.game_state == GameState.MENU:
         return
+    elif globals.game_state == GameState.PAUSED:
+        return
     
     if globals.game_state == GameState.LOST:
         if held_keys['r']:
@@ -198,6 +200,6 @@ def update():
         return
 
 window.fullscreen = False
-WindowController()
+WindowController(gameui=game_ui)
 game_ui.draw_menu_screen()
 app.run()

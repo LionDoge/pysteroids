@@ -1,15 +1,6 @@
 from ursina import *
 import asteroidsconstants as ac
-
-class WindowController(Entity):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-    
-    def input(self, key):
-        if key == 'f11 down':
-            print('Toggling fullscreen')
-            window.fullscreen = not window.fullscreen
-
+import globals
 
 class GameUI:
     def __init__(self, start_game_callback, debug_text=False):
@@ -71,3 +62,32 @@ class GameUI:
         if self.lose_text is not None:
             destroy(self.lose_text)
             self.lose_text = None
+
+    def display_pause_screen(self):
+        display = dedent('''
+            <yellow>Paused<default>
+            Press P to resume
+        ''').strip()
+        self.pause_text = Text(text=display, position=(0, 0), scale=2, origin=(0, 0))
+    
+    def clear_pause_screen(self):
+        if hasattr(self, 'pause_text'):
+            destroy(self.pause_text)
+            self.pause_text = None
+
+class WindowController(Entity):
+    def __init__(self, gameui: GameUI, **kwargs):
+        super().__init__(**kwargs)
+        self.gameui: GameUI = gameui
+    
+    def input(self, key):
+        if key == 'f11 down':
+            print('Toggling fullscreen')
+            window.fullscreen = not window.fullscreen
+        if key == 'p' and globals.game_state != globals.GameState.MENU:
+            if globals.game_state == globals.GameState.PLAYING:
+                globals.game_state = globals.GameState.PAUSED
+                self.gameui.display_pause_screen()
+            elif globals.game_state == globals.GameState.PAUSED:
+                globals.game_state = globals.GameState.PLAYING
+                self.gameui.clear_pause_screen()
