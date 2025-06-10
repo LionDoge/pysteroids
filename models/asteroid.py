@@ -12,7 +12,6 @@ class AsteroidModel(Mesh):
             origin.rotation_z -= 360 / resolution
             origin.scale = random.uniform(0.8, 1.2)
             self.vertices.append(point.world_position)
-            
 
         if mode == 'line':  # add the first point to make the circle whole
             self.vertices.append(self.vertices[0])

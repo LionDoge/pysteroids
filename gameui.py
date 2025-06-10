@@ -12,10 +12,23 @@ class WindowController(Entity):
 
 
 class GameUI:
-    def __init__(self, start_game_callback):
+    def __init__(self, start_game_callback, debug_text=False):
         self.start_game_callback = start_game_callback
         self.lose_text = None
+        self.score_display = Text(text='Score: 0', position=(0, -0.45), scale=1, origin=(0, 0), color=color.white, font=ac.ASSET_DIR + ac.FONT_MENU)
+        if debug_text:
+            self.info_text = Text(position=(0, .4), scale=1, origin=(0, 0))
+
+    def update_debug_text(self, rot, speed, pos, health):
+        if self.info_text is None:
+            return
+        self.info_text.text = f"{rot:.2f} speed {speed:.2f} pos {pos.x:.2f}, {pos.y:.2f} hp {health}"
     
+    def update_score(self, score):
+        if self.score_display is None:
+            return
+        self.score_display.text = f'Score: {score}'
+
     def draw_menu_screen(self):
         display = dedent('''
             Asteroidy :D
@@ -45,11 +58,12 @@ class GameUI:
         for b in camera.ui.children:
             if isinstance(b, Button):
                 destroy(b)
+                
     def display_lose_screen(self, score):
         display = dedent(f'''
             <red>Game Over!<default>
             Score: <yellow>{score}<default>
-            Press R to restart
+            Press R to go back to menu
         ''').strip()
         self.lose_text = Text(text=display, position=(0, 0), scale=2, origin=(0, 0))
 
